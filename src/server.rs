@@ -16,7 +16,7 @@ impl Server {
         let listener = TcpListener::bind(&self.addr).unwrap();
 
         for stream in listener.incoming() {
-            let stream = stream.unwrap();
+            let stream = stream.expect("failed to read from TCP stream");
             self.handle_connection(stream);
 
             println!("Connection established!");
