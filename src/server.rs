@@ -27,7 +27,11 @@ impl Server {
         loop {
             match stream.read(&mut buf) {
                 Ok(len) => {
-                    println!("{}", len);
+                    if len == 0 {
+                        continue;
+                    }
+
+                    println!("buffer lenght: {}", len);
                 }
                 Err(e) => {
                     println!("err: {:?}", e);
