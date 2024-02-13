@@ -1,5 +1,7 @@
+use crate::request::Request;
 use std::{
-    io::{BufRead, BufReader, Read},
+    convert::TryFrom,
+    io::Read,
     net::{TcpListener, TcpStream},
 };
 
@@ -23,13 +25,16 @@ impl Server {
     }
 
     fn handle_connection(&mut self, mut stream: TcpStream) -> ! {
-        let mut buf = [0 as u8; 1024];
+        // let reader = BufReader::new(stream.try_clone().expect("failed to clone stream"));
+        let mut buf = [0; 1024];
         loop {
             match stream.read(&mut buf) {
                 Ok(len) => {
                     if len == 0 {
                         continue;
                     }
+
+                    Request::try_from(&buf[..]);
 
                     println!("buffer lenght: {}", len);
                 }
@@ -54,8 +59,12 @@ impl Server {
 
 #[cfg(test)]
 mod tests {
+
     #[test]
     fn exploration() {
-        assert_eq!(2 + 2, 4);
+        // asse    assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
+        // EvenNumber::try_from(8);
+        // assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
+        // assert_eq!(EvenNumber::try_from(5), Err(()));
     }
 }
