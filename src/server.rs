@@ -1,7 +1,7 @@
 use crate::request::Request;
 use std::{
     convert::TryFrom,
-    io::Read,
+    io::{BufRead, BufReader, Read},
     net::{TcpListener, TcpStream},
 };
 
@@ -24,37 +24,38 @@ impl Server {
         }
     }
 
-    fn handle_connection(&mut self, mut stream: TcpStream) -> ! {
-        // let reader = BufReader::new(stream.try_clone().expect("failed to clone stream"));
-        let mut buf = [0; 1024];
-        loop {
-            match stream.read(&mut buf) {
-                Ok(len) => {
-                    if len == 0 {
-                        continue;
-                    }
-
-                    Request::try_from(&buf[..]);
-
-                    println!("buffer lenght: {}", len);
-                }
-                Err(e) => {
-                    println!("err: {:?}", e);
-                }
-            }
-        }
-    }
-
-    // fn handle_connection(&mut self, mut stream: TcpStream) {
-    //     let buf_reader = BufReader::new(&mut stream);
-    //     let http_request: Vec<_> = buf_reader
-    //         .lines()
-    //         .map(|result| result.unwrap())
-    //         .take_while(|line| !line.is_empty())
-    //         .collect();
-
-    //     println!("Request: {:#?}", http_request);
+    // fn handle_connection(&mut self, mut stream: TcpStream) -> ! {
+    //     // let reader = BufReader::new(stream.try_clone().expect("failed to clone stream"));
+    //     // let buf_reader = BufReader::new(&mut stream);
+    //     let mut buf = [0; 1024];
+    //     loop {
+    //         match stream.read(&mut buf) {
+    //             Ok(_) => match Request::try_from(&buf[..]) {
+    //                 Ok() => {}
+    //                 Err(e) => {}
+    //             },
+    //             Err(e) => {
+    //                 println!("err: {:?}", e);
+    //             }
+    //         }
+    //     }
     // }
+
+    fn handle_connection(&mut self, mut stream: TcpStream) {
+        let buf_reader = BufReader::new(&mut stream);
+        let http_request: Vec<String> = buf_reader
+            .lines()
+            .map(|result| result.unwrap())
+            .take_while(|line| !line.is_empty())
+            .collect();
+        // println!("Request: {:#?}", http_request);
+
+        if http_request[0] == "GET /ws HTTP/1.1" {
+            println!("Yes it does...");
+        }
+
+        // for l in http_request.clone().into_iter() {}
+    }
 }
 
 #[cfg(test)]
