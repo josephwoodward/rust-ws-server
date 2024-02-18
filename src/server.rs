@@ -1,7 +1,6 @@
 use crate::request::Request;
 use std::{
-    convert::TryFrom,
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader},
     net::{TcpListener, TcpStream},
 };
 
@@ -14,14 +13,20 @@ impl Server {
         Self { addr }
     }
 
-    pub fn run(&mut self) {
-        let listener = TcpListener::bind(&self.addr).unwrap();
+    pub fn run(&mut self) -> Result<(), String> {
+        let listener = match TcpListener::bind(&self.addr) {
+            Ok(l) => l,
+            Err(e) => return Err(format!("failed to bind connection: {e}")),
+        };
+
         println!("server running and listening on: {}", &self.addr);
 
         for stream in listener.incoming() {
             let stream = stream.expect("failed to read from TCP stream");
             self.handle_connection(stream);
         }
+
+        return Ok(());
     }
 
     // fn handle_connection(&mut self, mut stream: TcpStream) -> ! {
@@ -54,7 +59,15 @@ impl Server {
             println!("Yes it does...");
         }
 
-        // for l in http_request.clone().into_iter() {}
+        // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
+        // GET /chat HTTP/1.1
+        // Host: server.example.com
+        // Upgrade: websocket
+        // Connection: Upgrade
+        // Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+        // Origin: http://example.com
+        // Sec-WebSocket-Protocol: chat, superchat
+        // Sec-WebSocket-Version: 13
     }
 }
 
