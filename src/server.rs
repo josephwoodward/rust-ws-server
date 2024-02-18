@@ -1,6 +1,6 @@
 use crate::request::Request;
 use std::{
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, BufWriter, Write},
     net::{TcpListener, TcpStream},
 };
 
@@ -55,9 +55,16 @@ impl Server {
             .collect();
         // println!("Request: {:#?}", http_request);
 
-        if http_request[0] == "GET /ws HTTP/1.1" {
-            println!("Yes it does...");
+        let mut buf_writer = BufWriter::new(&mut stream);
+        if http_request[0] != "GET /ws HTTP/1.1" {
+            buf_writer
+                .write("HTTP/1.1 404 Not Found".as_bytes())
+                .unwrap();
+        } else {
+            buf_writer.write("HTTP/1.1 200 OK".as_bytes()).unwrap();
         }
+
+        buf_writer.flush().unwrap();
 
         // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
         // GET /chat HTTP/1.1
@@ -68,6 +75,12 @@ impl Server {
         // Origin: http://example.com
         // Sec-WebSocket-Protocol: chat, superchat
         // Sec-WebSocket-Version: 13
+
+        // HTTP/1.1 101 Switching Protocols
+        // Upgrade: websocket
+        // Connection: Upgrade
+        // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+        // From https://tools.ietf.org/html/rfc6455#section-4.2.2
     }
 }
 
