@@ -16,7 +16,7 @@ impl Server {
     pub fn run(&mut self) -> Result<(), String> {
         let listener = match TcpListener::bind(&self.addr) {
             Ok(l) => l,
-            Err(e) => return Err(format!("failed to bind connection: {e}")),
+            Err(e) => return Err(e.to_string()),
         };
 
         println!("server running and listening on: {}", &self.addr);
