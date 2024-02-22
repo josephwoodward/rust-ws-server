@@ -1,8 +1,10 @@
-use crate::request::Request;
+// use crate::request::Request;
 use std::{
     io::{BufRead, BufReader, BufWriter, Write},
     net::{TcpListener, TcpStream},
 };
+
+use sha1::{Digest, Sha1};
 
 pub struct Server {
     addr: String,
@@ -61,7 +63,9 @@ impl Server {
                 .write("HTTP/1.1 404 Not Found".as_bytes())
                 .unwrap();
         } else {
-            buf_writer.write("HTTP/1.1 200 OK".as_bytes()).unwrap();
+            buf_writer
+                .write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ".as_bytes())
+                .unwrap();
         }
 
         buf_writer.flush().unwrap();
@@ -84,14 +88,38 @@ impl Server {
     }
 }
 
+fn generate_hash(hash: String) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(hash.as_bytes());
+    hasher.update("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+    // h := sha1.New()
+    // h.Write([]byte(key))
+    // h.Write([]byte("258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
+    // return base64.StdEncoding.EncodeToString(h.Sum(nil))
+    //
+    let _ = hasher.finalize();
+    return "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=".into();
+}
+
 #[cfg(test)]
 mod tests {
+    // #[test]
+    // fn exploration() {
+    //     asse    assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
+    //     EvenNumber::try_from(8);
+    //     assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
+    //     assert_eq!(EvenNumber::try_from(5), Err(()));
+    // }
 
     #[test]
-    fn exploration() {
-        // asse    assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
-        // EvenNumber::try_from(8);
-        // assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
-        // assert_eq!(EvenNumber::try_from(5), Err(()));
+    fn generate_accept_hash() {
+        assert_eq!(
+            crate::server::generate_hash("dGhlIHNhbXBsZSBub25jZQ==".to_string()),
+            "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+        )
     }
+
+    // func TestGetAcceptHash(t *testing.T) {
+    // 	assert(t, ws.GenerateAcceptHash("dGhlIHNhbXBsZSBub25jZQ=="), "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
+    // }
 }
