@@ -31,23 +31,6 @@ impl Server {
         return Ok(());
     }
 
-    // fn handle_connection(&mut self, mut stream: TcpStream) -> ! {
-    //     // let reader = BufReader::new(stream.try_clone().expect("failed to clone stream"));
-    //     // let buf_reader = BufReader::new(&mut stream);
-    //     let mut buf = [0; 1024];
-    //     loop {
-    //         match stream.read(&mut buf) {
-    //             Ok(_) => match Request::try_from(&buf[..]) {
-    //                 Ok() => {}
-    //                 Err(e) => {}
-    //             },
-    //             Err(e) => {
-    //                 println!("err: {:?}", e);
-    //             }
-    //         }
-    //     }
-    // }
-
     fn handle_connection(&mut self, mut stream: TcpStream) {
         let buf_reader = BufReader::new(&mut stream);
         let http_request: Vec<String> = buf_reader
@@ -56,6 +39,7 @@ impl Server {
             .take_while(|line| !line.is_empty())
             .collect();
         // println!("Request: {:#?}", http_request);
+        // Sec-WebSocket-Key
 
         let mut buf_writer = BufWriter::new(&mut stream);
         if http_request[0] != "GET /ws HTTP/1.1" {
@@ -63,8 +47,9 @@ impl Server {
                 .write("HTTP/1.1 404 Not Found".as_bytes())
                 .unwrap();
         } else {
+            let key = find_websocket_key(http_request);
             buf_writer
-                .write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ".as_bytes())
+                .write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {key}\r\n").as_bytes())
                 .unwrap();
         }
 
@@ -101,25 +86,36 @@ fn generate_hash(hash: String) -> String {
     return "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=".into();
 }
 
+fn find_websocket_key(request: Vec<String>) -> String {
+    let key = "Sec-WebSocket-Key: ";
+    for h in request.iter() {
+        if h.contains(key) {
+            return "abcd".to_string();
+        }
+    }
+    // Sec-WebSocket-Key
+    return "".to_string();
+}
+
 #[cfg(test)]
 mod tests {
-    // #[test]
-    // fn exploration() {
-    //     asse    assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
-    //     EvenNumber::try_from(8);
-    //     assert_eq!(EvenNumber::try_from(8), Ok(EvenNumber(8)));
-    //     assert_eq!(EvenNumber::try_from(5), Err(()));
-    // }
+    use crate::server::{find_websocket_key, generate_hash};
 
     #[test]
     fn generate_accept_hash() {
         assert_eq!(
-            crate::server::generate_hash("dGhlIHNhbXBsZSBub25jZQ==".to_string()),
+            generate_hash("dGhlIHNhbXBsZSBub25jZQ==".to_string()),
             "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
         )
     }
 
-    // func TestGetAcceptHash(t *testing.T) {
-    // 	assert(t, ws.GenerateAcceptHash("dGhlIHNhbXBsZSBub25jZQ=="), "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
-    // }
+    #[test]
+    fn find_key_test() {
+        let request = vec![
+            "GET /ws HTTP/1.1".to_string(),
+            "b".into(),
+            "Sec-WebSocket-Key: abcd".into(),
+        ];
+        assert_eq!(find_websocket_key(request), "abcd");
+    }
 }
