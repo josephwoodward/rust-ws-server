@@ -110,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn find_key_test() {
+    fn find_websocket_key_test() {
         let request = vec![
             "GET /ws HTTP/1.1".to_string(),
             "b".into(),
