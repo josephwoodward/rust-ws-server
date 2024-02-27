@@ -47,12 +47,15 @@ impl Server {
                 .write("HTTP/1.1 404 Not Found".as_bytes())
                 .unwrap();
         } else {
-            let key = find_websocket_key(http_request);
-            buf_writer
-                .write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {key}\r\n").as_bytes())
+            if let Some(key) = find_websocket_key(http_request) {
+                println!("switching protocols");
+                buf_writer
+                .write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {key}\r\n\r\n").as_bytes())
                 .unwrap();
+            }
         }
 
+        println!("flushing writer");
         buf_writer.flush().unwrap();
 
         // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
@@ -86,15 +89,16 @@ fn generate_hash(hash: String) -> String {
     return "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=".into();
 }
 
-fn find_websocket_key(request: Vec<String>) -> String {
-    let key = "Sec-WebSocket-Key: ";
+fn find_websocket_key(request: Vec<String>) -> Option<String> {
+    let key = "Sec-WebSocket-Key:";
+    let l = key.len();
     for h in request.iter() {
         if h.contains(key) {
-            return "abcd".to_string();
+            let val = &h[l..].trim_start();
+            return Some(val.to_string());
         }
     }
-    // Sec-WebSocket-Key
-    return "".to_string();
+    return None;
 }
 
 #[cfg(test)]
@@ -116,6 +120,6 @@ mod tests {
             "b".into(),
             "Sec-WebSocket-Key: abcd".into(),
         ];
-        assert_eq!(find_websocket_key(request), "abcd");
+        assert_eq!(find_websocket_key(request).is_some(), true);
     }
 }
