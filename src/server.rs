@@ -53,6 +53,15 @@ impl Server {
             // reader.read_exact(&mut buf);
             // println!("size is {b}");
 
+            let mut buf = vec![0u8; 2];
+            let _ = stream
+                .read_exact(&mut buf)
+                .expect("could not read from buffer");
+            // let reader = BufReader::new(&mut buf);
+            // reader.read_exact(&mut buf);
+            let b = buf[0];
+            println!("val is: {b}");
+
             let buf_reader = BufReader::new(&mut stream);
             let http_request: Vec<String> = buf_reader
                 .lines()
@@ -61,22 +70,27 @@ impl Server {
                 .collect();
             // println!("Request: {:#?}", http_request);
 
-            let mut buf_writer = BufWriter::new(&mut stream);
             if http_request[0] != "GET /ws HTTP/1.1" {
+                let mut buf_writer = BufWriter::new(&mut stream);
                 buf_writer
                     .write("HTTP/1.1 404 Not Found".as_bytes())
                     .unwrap();
+
+                buf_writer.flush().unwrap();
+                continue;
             } else {
                 if let Some(key) = find_websocket_key(http_request) {
+                    let mut buf_writer = BufWriter::new(&mut stream);
                     let hash = generate_hash(key);
                     println!("switching protocols");
                     buf_writer
                 .write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
                 .unwrap();
+
+                    buf_writer.flush().unwrap();
+                    continue;
                 }
             }
-
-            buf_writer.flush().unwrap();
 
             let mut buf = vec![0u8; 2];
             let b = buf[1];
