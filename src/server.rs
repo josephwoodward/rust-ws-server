@@ -130,6 +130,6 @@ mod tests {
             "b".into(),
             "Sec-WebSocket-Key: abcd".into(),
         ];
-        assert_eq!(find_websocket_key(request).is_some(), true);
+        assert_eq!(find_websocket_key(request).unwrap(), "abcd");
     }
 }
