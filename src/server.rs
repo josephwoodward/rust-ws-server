@@ -48,23 +48,19 @@ impl Server {
             .map(|result| result.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
-        if http_request[0] != "GET /ws HTTP/1.1" {
-            let mut buf_writer = BufWriter::new(&mut stream);
-            buf_writer
-                .write("HTTP/1.1 404 Not Found".as_bytes())
-                .unwrap();
 
-            buf_writer.flush().unwrap();
+        if http_request[0] != "GET /ws HTTP/1.1" {
+            let mut w = BufWriter::new(&mut stream);
+            w.write("HTTP/1.1 404 Not Found".as_bytes()).unwrap();
+            w.flush().unwrap();
         } else if let Some(key) = find_websocket_key(http_request) {
-            let mut buf_writer = BufWriter::new(&mut stream);
             let hash = generate_hash(key);
+            let mut w = BufWriter::new(&mut stream);
+            w.write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
+                .unwrap();
+            w.flush().unwrap();
 
             println!("switching protocols");
-            buf_writer
-                .write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
-                .unwrap();
-
-            buf_writer.flush().unwrap();
         }
 
         loop {
@@ -101,16 +97,14 @@ impl Server {
 fn generate_hash(key: String) -> String {
     let mut hasher = Sha1::new();
     hasher.input(key.to_owned() + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-
     return base64::encode(hasher.result());
 }
 
 fn find_websocket_key(request: Vec<String>) -> Option<String> {
     let key = "Sec-WebSocket-Key:";
-    let l = key.len();
     for h in request.iter() {
         if h.contains(key) {
-            let val = &h[l..].trim_start();
+            let val = &h[key.len()..].trim_start();
             return Some(val.to_string());
         }
     }
@@ -125,7 +119,7 @@ mod tests {
     fn generate_accept_hash() {
         assert_eq!(
             generate_hash("dGhlIHNhbXBsZSBub25jZQ==".to_string()),
-            "b37a4f2cc0624f1690f64606cf385945b2bec4ea"
+            "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
         )
     }
 
