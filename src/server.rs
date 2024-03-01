@@ -42,16 +42,33 @@ impl Server {
     // }
 
     fn upgrade_connection(&mut self, mut stream: TcpStream) {
-        loop {
-            // let mut buf = vec![0u8; 2];
-            // let b = buf[1];
+        // initial HTTP websocket haneshake
+        let http_request: Vec<String> = BufReader::new(&mut stream)
+            .lines()
+            .map(|result| result.unwrap())
+            .take_while(|line| !line.is_empty())
+            .collect();
+        if http_request[0] != "GET /ws HTTP/1.1" {
+            let mut buf_writer = BufWriter::new(&mut stream);
+            buf_writer
+                .write("HTTP/1.1 404 Not Found".as_bytes())
+                .unwrap();
 
-            // let _ = stream
-            //     .read_exact(&mut buf)
-            //     .expect("could not read from buffer");
-            // let reader = BufReader::new(&mut buf);
-            // reader.read_exact(&mut buf);
-            // println!("size is {b}");
+            buf_writer.flush().unwrap();
+        } else if let Some(key) = find_websocket_key(http_request) {
+            let mut buf_writer = BufWriter::new(&mut stream);
+            let hash = generate_hash(key);
+
+            println!("switching protocols");
+            buf_writer
+                .write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
+                .unwrap();
+
+            buf_writer.flush().unwrap();
+        }
+
+        loop {
+            println!("Reading in loop now");
 
             let mut buf = vec![0u8; 2];
             let _ = stream
@@ -61,59 +78,7 @@ impl Server {
             // reader.read_exact(&mut buf);
             let b = buf[0];
             println!("val is: {b}");
-
-            let buf_reader = BufReader::new(&mut stream);
-            let http_request: Vec<String> = buf_reader
-                .lines()
-                .map(|result| result.unwrap())
-                .take_while(|line| !line.is_empty())
-                .collect();
-            // println!("Request: {:#?}", http_request);
-
-            if http_request[0] != "GET /ws HTTP/1.1" {
-                let mut buf_writer = BufWriter::new(&mut stream);
-                buf_writer
-                    .write("HTTP/1.1 404 Not Found".as_bytes())
-                    .unwrap();
-
-                buf_writer.flush().unwrap();
-                continue;
-            } else {
-                if let Some(key) = find_websocket_key(http_request) {
-                    let mut buf_writer = BufWriter::new(&mut stream);
-                    let hash = generate_hash(key);
-                    println!("switching protocols");
-                    buf_writer
-                .write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
-                .unwrap();
-
-                    buf_writer.flush().unwrap();
-                    continue;
-                }
-            }
-
-            let mut buf = vec![0u8; 2];
-            let b = buf[1];
-
-            let _ = stream
-                .read_exact(&mut buf)
-                .expect("could not read from buffer");
-            // let reader = BufReader::new(&mut buf);
-            // reader.read_exact(&mut buf);
-            println!("val is: {b}");
         }
-
-        // println!("done");
-
-        // let mut buf = vec![0u8; 2];
-        // let b = buf[1];
-
-        // let _ = stream
-        //     .read_exact(&mut buf)
-        //     .expect("could not read from buffer");
-        // let reader = BufReader::new(&mut buf);
-        // reader.read_exact(&mut buf);
-        // println!("val is: {b}");
 
         // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
         // GET /chat HTTP/1.1
