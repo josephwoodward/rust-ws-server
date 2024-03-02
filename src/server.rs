@@ -1,19 +1,13 @@
-// use crate::request::Request;
-use base64::prelude::*;
 use sha1::{Digest, Sha1};
 use std::{
     io::{BufRead, BufReader, BufWriter, Read, Write},
     net::{TcpListener, TcpStream},
-    thread,
 };
+
+use crate::request::OpCode;
 
 pub struct Server {
     addr: String,
-}
-
-enum State {
-    A,
-    B,
 }
 
 impl Server {
@@ -37,12 +31,23 @@ impl Server {
         return Ok(());
     }
 
-    // fn handle_connection(&mut self, mut stream: TcpStream) {
-    //     println!("handling ws connection");
-    // }
-
     fn upgrade_connection(&mut self, mut stream: TcpStream) {
         // initial HTTP websocket haneshake
+        // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
+        // GET /chat HTTP/1.1
+        // Host: server.example.com
+        // Upgrade: websocket
+        // Connection: Upgrade
+        // Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+        // Origin: http://example.com
+        // Sec-WebSocket-Protocol: chat, superchat
+        // Sec-WebSocket-Version: 13
+
+        // HTTP/1.1 101 Switching Protocols
+        // Upgrade: websocket
+        // Connection: Upgrade
+        // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+        // From https://tools.ietf.org/html/rfc6455#section-4.2.2
         let http_request: Vec<String> = BufReader::new(&mut stream)
             .lines()
             .map(|result| result.unwrap())
@@ -64,33 +69,14 @@ impl Server {
         }
 
         loop {
-            println!("Reading in loop now");
-
-            let mut buf = vec![0u8; 2];
+            let mut buf = vec![0u8; 1];
             let _ = stream
                 .read_exact(&mut buf)
                 .expect("could not read from buffer");
-            // let reader = BufReader::new(&mut buf);
-            // reader.read_exact(&mut buf);
-            let b = buf[0];
-            println!("val is: {b}");
+
+            let oc = OpCode::from_u8(buf[0]);
+            println!("val is: {oc}");
         }
-
-        // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
-        // GET /chat HTTP/1.1
-        // Host: server.example.com
-        // Upgrade: websocket
-        // Connection: Upgrade
-        // Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-        // Origin: http://example.com
-        // Sec-WebSocket-Protocol: chat, superchat
-        // Sec-WebSocket-Version: 13
-
-        // HTTP/1.1 101 Switching Protocols
-        // Upgrade: websocket
-        // Connection: Upgrade
-        // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
-        // From https://tools.ietf.org/html/rfc6455#section-4.2.2
     }
 }
 
