@@ -6,6 +6,24 @@ use std::{
 
 use crate::request::OpCode;
 
+pub struct Frame {
+    is_final: bool,
+    op_code: OpCode,
+    is_masked: bool,
+    payload: Option<Vec<u8>>,
+}
+
+impl Frame {
+    pub fn new(op_code: OpCode, is_final: bool, is_masked: bool) -> Self {
+        Self {
+            op_code,
+            is_final,
+            is_masked,
+            payload: None,
+        }
+    }
+}
+
 pub struct Server {
     addr: String,
 }
@@ -48,17 +66,17 @@ impl Server {
         // Connection: Upgrade
         // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
         // From https://tools.ietf.org/html/rfc6455#section-4.2.2
-        let http_request: Vec<String> = BufReader::new(&mut stream)
+        let initial_handshake: Vec<String> = BufReader::new(&mut stream)
             .lines()
             .map(|result| result.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
 
-        if http_request[0] != "GET /ws HTTP/1.1" {
+        if initial_handshake[0] != "GET /ws HTTP/1.1" {
             let mut w = BufWriter::new(&mut stream);
             w.write("HTTP/1.1 404 Not Found".as_bytes()).unwrap();
             w.flush().unwrap();
-        } else if let Some(key) = find_websocket_key(http_request) {
+        } else if let Some(key) = find_websocket_key(initial_handshake) {
             let hash = generate_hash(key);
             let mut w = BufWriter::new(&mut stream);
             w.write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
@@ -74,8 +92,30 @@ impl Server {
                 .read_exact(&mut buf)
                 .expect("could not read from buffer");
 
-            let oc = OpCode::from_u8(buf[0]);
-            println!("val is: {oc}");
+            let mut f = Frame::new(OpCode::from_u8(buf[0]), true, false);
+            f.payload = Some(vec![0; 24]);
+
+            match f.op_code {
+                OpCode::TEXT => {
+                    let mut x: [u8; 2] = [0u8; 2];
+                    // first byte
+                    // 1000 0001
+                    let mut byte: u8 = OpCode::to_u8(&f.op_code);
+                    println!("opcode is: {0}", OpCode::to_u8(&f.op_code));
+                    if f.is_final {
+                        byte = 1 << 7
+                    }
+                    x[0] = byte;
+
+                    println!("val is: {0}", x[0]);
+                    let mut w = BufWriter::new(&mut stream);
+                    w.write(&x).unwrap();
+                    w.flush().unwrap();
+                }
+                OpCode::CLOSE => {}
+                OpCode::PING => {}
+                OpCode::PONG => {}
+            }
         }
     }
 }

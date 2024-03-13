@@ -2,7 +2,6 @@ use std::{fmt, string::ParseError};
 
 pub struct Request {
     pub path: String,
-    // pub method: Method,
 }
 
 impl TryFrom<&[u8]> for Request {
@@ -30,6 +29,9 @@ impl OpCode {
             _ => panic!("Unknown op code: {}", v),
         }
     }
+    pub fn to_u8(oc: &OpCode) -> u8 {
+        *oc as u8
+    }
 }
 
 impl fmt::Display for OpCode {
@@ -50,6 +52,7 @@ mod tests {
     #[test]
     fn test_op_code_parsing() {
         assert!(matches!(OpCode::from_u8(129), OpCode::TEXT));
+        assert!(matches!(OpCode::from_u8(136), OpCode::CLOSE));
         assert!(matches!(OpCode::from_u8(137), OpCode::PING));
         assert!(matches!(OpCode::from_u8(138), OpCode::PONG));
     }
