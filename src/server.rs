@@ -2,6 +2,7 @@ use sha1::{Digest, Sha1};
 use std::{
     io::{BufRead, BufReader, BufWriter, Read, Write},
     net::{TcpListener, TcpStream},
+    usize,
 };
 
 use crate::request::OpCode;
@@ -92,24 +93,32 @@ impl Server {
                 .read_exact(&mut buf)
                 .expect("could not read from buffer");
 
-            let mut f = Frame::new(OpCode::from_u8(buf[0]), true, false);
+            let bff = buf[0];
+            println!("val is {0}", bff);
+
+            let mut f = Frame::new(OpCode::from_u8(bff), true, false);
             f.payload = Some(vec![0; 24]);
 
             match f.op_code {
                 OpCode::TEXT => {
-                    let mut x: [u8; 2] = [0u8; 2];
+                    let msg = "hello mike";
+                    let mut result = vec![0u8; 2 + msg.len()];
                     // first byte
                     // 1000 0001
-                    let mut byte: u8 = OpCode::to_u8(&f.op_code);
-                    println!("opcode is: {0}", OpCode::to_u8(&f.op_code));
+                    let mut b: u8 = OpCode::to_u8(&OpCode::TEXT);
                     if f.is_final {
-                        byte = 1 << 7
+                        b |= 1 << 7
                     }
-                    x[0] = byte;
+                    result[0] = b;
 
-                    println!("val is: {0}", x[0]);
+                    println!("final val is: {0}", result[0]);
+
+                    let b1: u8 = 0;
+                    result[1] = b1 | usize::to_ne_bytes(msg.len())[0];
+                    result[2..].copy_from_slice(msg.as_bytes());
+
                     let mut w = BufWriter::new(&mut stream);
-                    w.write(&x).unwrap();
+                    w.write(&result).unwrap();
                     w.flush().unwrap();
                 }
                 OpCode::CLOSE => {}
