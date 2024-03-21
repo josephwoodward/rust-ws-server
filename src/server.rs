@@ -12,15 +12,24 @@ pub struct Frame {
     op_code: OpCode,
     is_masked: bool,
     payload: Option<Vec<u8>>,
+    length: u8,
 }
 
 impl Frame {
     pub fn new(op_code: OpCode, is_final: bool, is_masked: bool) -> Self {
+        if is_masked {
+            println!("payload is masked");
+        }
+        if is_final {
+            println!("payload is final");
+        }
+
         Self {
             op_code,
             is_final,
             is_masked,
             payload: None,
+            length: 0,
         }
     }
 }
@@ -88,19 +97,37 @@ impl Server {
         }
 
         loop {
-            let mut buf = vec![0u8; 1];
+            let mut head = vec![0u8; 2];
             let _ = stream
-                .read_exact(&mut buf)
+                .read_exact(&mut head)
                 .expect("could not read from buffer");
 
-            let bff = buf[0];
-            println!("val is {0}", bff);
-
-            let mut f = Frame::new(OpCode::from_u8(bff), true, false);
-            f.payload = Some(vec![0; 24]);
+            let is_masked = (head[1] & 0x80) == 0x80;
+            let is_final = (head[0] & 0x80) == 0x00;
+            let mut f = Frame::new(OpCode::from_u8(head[0]), is_final, is_masked);
 
             match f.op_code {
                 OpCode::TEXT => {
+                    f.length = head[1] & 0x7F;
+                    if f.length > 0 {
+                        f.payload = Some(vec![0; f.length.into()]);
+                        println!("payload length: {0}", f.length);
+                    }
+
+                    // read payload now we have length
+                    let mut pl = vec![0u8; f.length.into()];
+                    let _ = stream
+                        .read_exact(&mut pl)
+                        .expect("could not read payload from buffer");
+
+                    match f.payload {
+                        Some(p) => {
+                            println!("received message: {0}", String::from_utf8_lossy(&p));
+                        }
+                        None => {
+                            println!("no message received");
+                        }
+                    };
                     let msg = "hello mike";
                     let mut result = vec![0u8; 2 + msg.len()];
                     // first byte
