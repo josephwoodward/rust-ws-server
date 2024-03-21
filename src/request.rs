@@ -30,7 +30,7 @@ impl OpCode {
         }
     }
     pub fn to_u8(oc: &OpCode) -> u8 {
-        *oc as u8
+        return *oc as u8;
     }
 }
 
