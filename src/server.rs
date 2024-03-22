@@ -17,12 +17,8 @@ pub struct Frame {
 
 impl Frame {
     pub fn new(op_code: OpCode, is_final: bool, is_masked: bool) -> Self {
-        if is_masked {
-            println!("payload is masked");
-        }
-        if is_final {
-            println!("payload is final");
-        }
+        println!("payload is masked: {0}", is_masked);
+        println!("payload is final: {0}", is_final);
 
         Self {
             op_code,
