@@ -11,21 +11,23 @@ pub struct Frame {
     is_final: bool,
     op_code: OpCode,
     is_masked: bool,
+    masking_key: Option<[u8; 4]>,
+    payload_length: u8,
     payload: Option<Vec<u8>>,
-    length: u8,
 }
 
 impl Frame {
-    pub fn new(op_code: OpCode, is_final: bool, is_masked: bool) -> Self {
-        println!("payload is masked: {0}", is_masked);
-        println!("payload is final: {0}", is_final);
+    pub fn new(head: Vec<u8>) -> Self {
+        // println!("payload is masked: {0}", is_masked);
+        // println!("payload is final: {0}", is_final);
 
         Self {
-            op_code,
-            is_final,
-            is_masked,
+            op_code: OpCode::from_u8(head[0]),
+            is_final: (head[0] & 0x80) == 0x00,
+            is_masked: (head[1] & 0x80) == 0x80,
+            masking_key: None,
+            payload_length: head[1] & 0x7F,
             payload: None,
-            length: 0,
         }
     }
 }
@@ -55,7 +57,7 @@ impl Server {
         return Ok(());
     }
 
-    fn upgrade_connection(&mut self, mut stream: TcpStream) {
+    fn upgrade_connection(&mut self, mut stream: TcpStream) -> ! {
         // initial HTTP websocket haneshake
         // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
         // GET /chat HTTP/1.1
@@ -94,27 +96,49 @@ impl Server {
 
         loop {
             let mut head = vec![0u8; 2];
+
+            // TODO: Improve error handling of reading into the buffer
             let _ = stream
                 .read_exact(&mut head)
                 .expect("could not read from buffer");
 
-            let is_masked = (head[1] & 0x80) == 0x80;
-            let is_final = (head[0] & 0x80) == 0x00;
-            let mut f = Frame::new(OpCode::from_u8(head[0]), is_final, is_masked);
+            let mut f = Frame::new(head);
+            println!("payload is masked: {0}", f.is_masked);
 
             match f.op_code {
                 OpCode::TEXT => {
-                    f.length = head[1] & 0x7F;
-                    if f.length > 0 {
-                        f.payload = Some(vec![0; f.length.into()]);
-                        println!("payload length: {0}", f.length);
+                    if f.payload_length > 0 {
+                        f.payload = Some(vec![0; f.payload_length.into()]);
+                        println!("payload length: {0}", f.payload_length);
                     }
 
                     // read payload now we have length
-                    let mut pl = vec![0u8; f.length.into()];
+                    let mut payload = vec![0u8; f.payload_length.into()];
                     let _ = stream
-                        .read_exact(&mut pl)
-                        .expect("could not read payload from buffer");
+                        .read_exact(&mut payload)
+                        .expect("could not read payload from stream");
+
+                    if f.is_masked {
+                        let mut masking_key = [0; 4];
+                        let _ = stream
+                            .read_exact(&mut masking_key)
+                            .expect("could not read masking key from stream");
+                        f.masking_key = Some(masking_key);
+
+                        // for i := uint64(0); i < frame.Length; i++ {
+                        // 	payload[i] ^= frame.MaskingKey[i%4]
+                        // }
+                        let mut i = 0;
+                        let mk = masking_key;
+                        let mut pl2: Vec<usize> = Vec::with_capacity(f.payload_length.into());
+                        // let mut pl = f.payload.into();
+                        let mut n = 0;
+                        while i < f.payload_length {
+                            i += 1;
+                            // f.payload ^= mk[i % 4];
+                            n ^= mk[usize::from(i % 4)];
+                        }
+                    }
 
                     match f.payload {
                         Some(p) => {
@@ -128,14 +152,6 @@ impl Server {
                     let mut result = vec![0u8; 2 + msg.len()];
                     // first byte
                     // 1000 0001
-                    let mut b: u8 = OpCode::to_u8(&OpCode::TEXT);
-                    if f.is_final {
-                        b |= 1 << 7
-                    }
-                    result[0] = b;
-
-                    println!("final val is: {0}", result[0]);
-
                     let b1: u8 = 0;
                     result[1] = b1 | usize::to_ne_bytes(msg.len())[0];
                     result[2..].copy_from_slice(msg.as_bytes());
