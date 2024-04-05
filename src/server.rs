@@ -17,18 +17,18 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new(head: Vec<u8>) -> Self {
-        // println!("payload is masked: {0}", is_masked);
-        // println!("payload is final: {0}", is_final);
-
+    pub fn new(head: [u8; 2]) -> Self {
         Self {
             op_code: OpCode::from_u8(head[0]),
             is_final: (head[0] & 0x80) == 0x00,
             is_masked: (head[1] & 0x80) == 0x80,
-            masking_key: None,
             payload_length: head[1] & 0x7F,
+            masking_key: None,
             payload: None,
         }
+
+        // println!("payload is masked: {0}", is_masked);
+        // println!("payload is final: {0}", is_final);
     }
 }
 
@@ -95,7 +95,7 @@ impl Server {
         }
 
         loop {
-            let mut head = vec![0u8; 2];
+            let mut head = [0u8; 2];
 
             // TODO: Improve error handling of reading into the buffer
             let _ = stream
@@ -112,42 +112,55 @@ impl Server {
                         println!("payload length: {0}", f.payload_length);
                     }
 
-                    // read payload now we have length
-                    let mut payload = vec![0u8; f.payload_length.into()];
-                    let _ = stream
-                        .read_exact(&mut payload)
-                        .expect("could not read payload from stream");
-
+                    // println!("received payload {0}", payload.len());
                     if f.is_masked {
                         let mut masking_key = [0; 4];
                         let _ = stream
                             .read_exact(&mut masking_key)
                             .expect("could not read masking key from stream");
-                        f.masking_key = Some(masking_key);
+
+                        // f.masking_key = Some(masking_key);
+                        // let s = match String::from_utf8(masking_key.to_vec()) {
+                        //     Ok(v) => v,
+                        //     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                        // };
+                        // println!("masking key: {0}", masking_key[0]);
+                        println!("masking key: {0}", masking_key[0]);
+                        println!("masking key: {0}", masking_key[1]);
+                        println!("masking key: {0}", masking_key[2]);
+                        println!("masking key: {0}", masking_key[3]);
+
+                        // read payload now we have length
+                        let mut payload = vec![0u8; f.payload_length.into()];
+                        let _ = stream
+                            .read_exact(&mut payload)
+                            .expect("could not read payload from stream");
+
+                        println!("received payload {0}", payload.len());
 
                         // for i := uint64(0); i < frame.Length; i++ {
                         // 	payload[i] ^= frame.MaskingKey[i%4]
                         // }
-                        let mut i = 0;
-                        let mk = masking_key;
-                        let mut pl2: Vec<usize> = Vec::with_capacity(f.payload_length.into());
-                        // let mut pl = f.payload.into();
-                        let mut n = 0;
-                        while i < f.payload_length {
-                            i += 1;
-                            // f.payload ^= mk[i % 4];
-                            n ^= mk[usize::from(i % 4)];
+                        match f.payload {
+                            Some(mut payload) => {
+                                unmask_easy(&mut payload, masking_key);
+                                println!(
+                                    "received message: {0}",
+                                    String::from_utf8_lossy(&payload)
+                                );
+                            }
+                            None => (),
                         }
                     }
 
-                    match f.payload {
-                        Some(p) => {
-                            println!("received message: {0}", String::from_utf8_lossy(&p));
-                        }
-                        None => {
-                            println!("no message received");
-                        }
-                    };
+                    // match f.payload {
+                    //     Some(p) => {
+                    //         println!("received message: {0}", String::from_utf8_lossy(&p));
+                    //     }
+                    //     None => {
+                    //         println!("no message received");
+                    //     }
+                    // };
                     let msg = "hello mike";
                     let mut result = vec![0u8; 2 + msg.len()];
                     // first byte
@@ -165,6 +178,12 @@ impl Server {
                 OpCode::PONG => {}
             }
         }
+    }
+}
+
+fn unmask_easy(payload: &mut [u8], mask: [u8; 4]) {
+    for i in 0..payload.len() {
+        payload[i] ^= mask[i & 3];
     }
 }
 
