@@ -98,76 +98,36 @@ impl Server {
             let mut head = [0u8; 2];
 
             // TODO: Improve error handling of reading into the buffer
-            let s = stream.read(&mut head).expect("failed to read from buffer");
-            if s == 2 {
-                println!("read {0} bytes from stream for head", s);
-            }
-
-            // let mask = if masked {
-            //     Some(self.buffer.get_u32().to_be_bytes())
-            // } else {
-            //     None
-            // };
+            let _ = stream.read(&mut head).expect("failed to read from buffer");
 
             let mut f = Frame::new(head);
-            println!("payload is masked: {0}", f.is_masked);
 
             match f.op_code {
                 OpCode::TEXT => {
                     if f.payload_length > 0 {
                         f.payload = Some(vec![0; f.payload_length.into()]);
-                        println!("payload length: {0}", f.payload_length);
                     }
 
-                    // println!("received payload {0}", payload.len());
                     if f.is_masked {
                         let mut masking_key = [0u8; 4];
-                        let s = stream
+                        let _ = stream
                             .read(&mut masking_key)
                             .expect("could not read masking key from stream");
-                        println!("masking key bytes read: {0}", s);
 
                         f.masking_key = Some(masking_key);
-                        // let s = match String::from_utf8(masking_key.to_vec()) {
-                        //     Ok(v) => v,
-                        //     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-                        // };
 
                         // read payload now we have length
                         let mut payload = vec![0u8; f.payload_length.into()];
-                        let n = stream
+                        let sz = stream
                             .read(&mut payload)
                             .expect("could not read payload from stream");
+                        f.payload = Some(payload.to_owned());
 
-                        println!("received payload {0}, actual {1}", n, payload.len());
-                        // println!("received payload {0}", payload.len());
-
-                        // if let Some(payload) = f.payload {
-                        //     let s = match String::from_utf8(payload) {
-                        //         Ok(v) => v,
-                        //         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-                        //     };
-                        // }
-
-                        // for i := uint64(0); i < frame.Length; i++ {
-                        // 	payload[i] ^= frame.MaskingKey[i%4]
-                        // }
-                        // let s = match String::from_utf8(f.payload) {
-                        //     Ok(v) => v,
-                        //     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-                        // };
-
-                        // let s = match String::from_utf8(masking_key.to_vec()) {
-                        //     Ok(v) => v,
-                        //     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-                        // };
-
-                        println!("result: {}", s);
                         match f.payload {
                             Some(mut pl) => {
                                 unmask_fallback(&mut pl, masking_key);
 
-                                let _ = match String::from_utf8(payload) {
+                                let _ = match String::from_utf8(pl) {
                                     Ok(v) => println!("received message: {0}", v),
                                     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                                 };
