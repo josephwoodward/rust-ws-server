@@ -98,9 +98,16 @@ impl Server {
             let mut head = [0u8; 2];
 
             // TODO: Improve error handling of reading into the buffer
-            let _ = stream
-                .read_exact(&mut head)
-                .expect("could not read from buffer");
+            let s = stream.read(&mut head).expect("failed to read from buffer");
+            if s == 2 {
+                println!("read {0} bytes from stream for head", s);
+            }
+
+            // let mask = if masked {
+            //     Some(self.buffer.get_u32().to_be_bytes())
+            // } else {
+            //     None
+            // };
 
             let mut f = Frame::new(head);
             println!("payload is masked: {0}", f.is_masked);
@@ -114,40 +121,56 @@ impl Server {
 
                     // println!("received payload {0}", payload.len());
                     if f.is_masked {
-                        let mut masking_key = [0; 4];
-                        let _ = stream
-                            .read_exact(&mut masking_key)
+                        let mut masking_key = [0u8; 4];
+                        let s = stream
+                            .read(&mut masking_key)
                             .expect("could not read masking key from stream");
+                        println!("masking key bytes read: {0}", s);
 
-                        // f.masking_key = Some(masking_key);
+                        f.masking_key = Some(masking_key);
                         // let s = match String::from_utf8(masking_key.to_vec()) {
                         //     Ok(v) => v,
                         //     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                         // };
-                        // println!("masking key: {0}", masking_key[0]);
-                        println!("masking key: {0}", masking_key[0]);
-                        println!("masking key: {0}", masking_key[1]);
-                        println!("masking key: {0}", masking_key[2]);
-                        println!("masking key: {0}", masking_key[3]);
 
                         // read payload now we have length
                         let mut payload = vec![0u8; f.payload_length.into()];
-                        let _ = stream
-                            .read_exact(&mut payload)
+                        let n = stream
+                            .read(&mut payload)
                             .expect("could not read payload from stream");
 
-                        println!("received payload {0}", payload.len());
+                        println!("received payload {0}, actual {1}", n, payload.len());
+                        // println!("received payload {0}", payload.len());
+
+                        // if let Some(payload) = f.payload {
+                        //     let s = match String::from_utf8(payload) {
+                        //         Ok(v) => v,
+                        //         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                        //     };
+                        // }
 
                         // for i := uint64(0); i < frame.Length; i++ {
                         // 	payload[i] ^= frame.MaskingKey[i%4]
                         // }
+                        // let s = match String::from_utf8(f.payload) {
+                        //     Ok(v) => v,
+                        //     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                        // };
+
+                        // let s = match String::from_utf8(masking_key.to_vec()) {
+                        //     Ok(v) => v,
+                        //     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                        // };
+
+                        println!("result: {}", s);
                         match f.payload {
-                            Some(mut payload) => {
-                                unmask_easy(&mut payload, masking_key);
-                                println!(
-                                    "received message: {0}",
-                                    String::from_utf8_lossy(&payload)
-                                );
+                            Some(mut pl) => {
+                                unmask_fallback(&mut pl, masking_key);
+
+                                let _ = match String::from_utf8(payload) {
+                                    Ok(v) => println!("received message: {0}", v),
+                                    Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                                };
                             }
                             None => (),
                         }
@@ -185,6 +208,27 @@ fn unmask_easy(payload: &mut [u8], mask: [u8; 4]) {
     for i in 0..payload.len() {
         payload[i] ^= mask[i & 3];
     }
+}
+
+fn unmask_fallback(buf: &mut [u8], mask: [u8; 4]) {
+    let mask_u32 = u32::from_ne_bytes(mask);
+
+    let (prefix, words, suffix) = unsafe { buf.align_to_mut::<u32>() };
+    unmask_easy(prefix, mask);
+    let head = prefix.len() & 3;
+    let mask_u32 = if head > 0 {
+        if cfg!(target_endian = "big") {
+            mask_u32.rotate_left(8 * head as u32)
+        } else {
+            mask_u32.rotate_right(8 * head as u32)
+        }
+    } else {
+        mask_u32
+    };
+    for word in words.iter_mut() {
+        *word ^= mask_u32;
+    }
+    unmask_easy(suffix, mask_u32.to_ne_bytes());
 }
 
 fn generate_hash(key: String) -> String {
