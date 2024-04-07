@@ -128,26 +128,20 @@ impl Server {
                         match f.payload {
                             Some(mut pl) => {
                                 match f.masking_key {
-                                    Some(mk) => unmask_fallback(&mut pl, mk),
+                                    Some(mk) => unmask_easy(&mut pl, mk),
                                     None => println!("no message received"),
                                 }
-                                let _ = match String::from_utf8(pl) {
-                                    Ok(v) => println!("received message: {0}", v),
+                                let msg = match String::from_utf8(pl) {
+                                    Ok(m) => m,
                                     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                                 };
+
+                                println!("received message: {0}", msg)
                             }
                             None => (),
                         }
                     }
 
-                    // match f.payload {
-                    //     Some(p) => {
-                    //         println!("received message: {0}", String::from_utf8_lossy(&p));
-                    //     }
-                    //     None => {
-                    //         println!("no message received");
-                    //     }
-                    // };
                     let msg = "hello mike";
                     let mut result = vec![0u8; 2 + msg.len()];
                     // first byte
