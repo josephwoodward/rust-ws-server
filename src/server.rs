@@ -123,10 +123,14 @@ impl Server {
                             .expect("could not read payload from stream");
                         f.payload = Some(payload.to_owned());
 
+                        println!("masking key {0}", masking_key[0]);
+
                         match f.payload {
                             Some(mut pl) => {
-                                unmask_fallback(&mut pl, masking_key);
-
+                                match f.masking_key {
+                                    Some(mk) => unmask_fallback(&mut pl, mk),
+                                    None => println!("no message received"),
+                                }
                                 let _ = match String::from_utf8(pl) {
                                     Ok(v) => println!("received message: {0}", v),
                                     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
