@@ -12,7 +12,7 @@ pub struct Frame {
     op_code: OpCode,
     is_masked: bool,
     masking_key: Option<[u8; 4]>,
-    payload_length: u8,
+    payload_length: u8, // TODO Remove this
     payload: Option<Vec<u8>>,
 }
 
@@ -30,6 +30,20 @@ impl Frame {
         // println!("payload is masked: {0}", is_masked);
         // println!("payload is final: {0}", is_final);
     }
+
+    // pub fn text(msg: Vec<u8>) -> Self {
+    //     Self {
+    //         op_code: OpCode::Text,
+    //         is_final: true,
+    //         is_masked: false,
+    //         payload_length: msg.len().to_ne_bytes(),
+    //         masking_key: None,
+    //         payload: Some(msg),
+    //     }
+
+    //     // println!("payload is masked: {0}", is_masked);
+    //     // println!("payload is final: {0}", is_final);
+    // }
 }
 
 pub struct Server {
@@ -74,6 +88,18 @@ impl Server {
         // Connection: Upgrade
         // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
         // From https://tools.ietf.org/html/rfc6455#section-4.2.2
+
+        // let mut head = [0u8];
+        // let s = BufReader::new(&mut stream);
+        // s.read(&head);
+
+        // let mut head = [0u8; 2];
+
+        // let mut s = BufReader::new(&mut stream);
+        // let _ = s.read(&mut head).expect("failed to read from buffer");
+        // println!("first byte {0}", head[0]);
+        // _ = s.read_exact(&head);
+
         let initial_handshake: Vec<String> = BufReader::new(&mut stream)
             .lines()
             .map(|result| result.unwrap())
@@ -103,7 +129,7 @@ impl Server {
             let mut f = Frame::new(head);
 
             match f.op_code {
-                OpCode::TEXT => {
+                OpCode::Text => {
                     if f.payload_length > 0 {
                         f.payload = Some(vec![0; f.payload_length.into()]);
                     }
@@ -118,7 +144,7 @@ impl Server {
 
                         // read payload now we have length
                         let mut payload = vec![0u8; f.payload_length.into()];
-                        let sz = stream
+                        let _ = stream
                             .read(&mut payload)
                             .expect("could not read payload from stream");
                         f.payload = Some(payload.to_owned());
@@ -129,7 +155,7 @@ impl Server {
                             Some(mut pl) => {
                                 match f.masking_key {
                                     Some(mk) => unmask_easy(&mut pl, mk),
-                                    None => println!("no message received"),
+                                    None => println!("no masking key"),
                                 }
                                 let msg = match String::from_utf8(pl) {
                                     Ok(m) => m,
@@ -142,11 +168,15 @@ impl Server {
                         }
                     }
 
-                    let msg = "hello mike";
-                    let mut result = vec![0u8; 2 + msg.len()];
-                    // first byte
+                    // header byte (fin + opcode)
                     // 1000 0001
+                    let b0: u8 = 129;
+                    let msg = "Hello Mike!";
+
+                    let mut result = vec![0u8; 2 + msg.len()];
                     let b1: u8 = 0;
+                    result[0] = b0;
+
                     result[1] = b1 | usize::to_ne_bytes(msg.len())[0];
                     result[2..].copy_from_slice(msg.as_bytes());
 
@@ -154,9 +184,9 @@ impl Server {
                     w.write(&result).unwrap();
                     w.flush().unwrap();
                 }
-                OpCode::CLOSE => {}
-                OpCode::PING => {}
-                OpCode::PONG => {}
+                OpCode::Close => {}
+                OpCode::Ping => {}
+                OpCode::Pong => {}
             }
         }
     }
