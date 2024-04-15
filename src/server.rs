@@ -12,7 +12,7 @@ pub struct Frame {
     op_code: OpCode,
     is_masked: bool,
     masking_key: Option<[u8; 4]>,
-    payload_length: u8, // TODO Remove this
+    payload_length: u8,
     payload: Option<Vec<u8>>,
 }
 
@@ -26,24 +26,18 @@ impl Frame {
             masking_key: None,
             payload: None,
         }
-
-        // println!("payload is masked: {0}", is_masked);
-        // println!("payload is final: {0}", is_final);
     }
 
-    // pub fn text(msg: Vec<u8>) -> Self {
-    //     Self {
-    //         op_code: OpCode::Text,
-    //         is_final: true,
-    //         is_masked: false,
-    //         payload_length: msg.len().to_ne_bytes(),
-    //         masking_key: None,
-    //         payload: Some(msg),
-    //     }
-
-    //     // println!("payload is masked: {0}", is_masked);
-    //     // println!("payload is final: {0}", is_final);
-    // }
+    pub fn text(msg: String) -> Self {
+        Self {
+            op_code: OpCode::Text,
+            is_final: true,
+            is_masked: false,
+            payload_length: msg.len().to_ne_bytes()[0],
+            masking_key: None,
+            payload: Some(msg.as_bytes().to_vec()),
+        }
+    }
 }
 
 pub struct Server {
@@ -123,7 +117,6 @@ impl Server {
         loop {
             let mut head = [0u8; 2];
 
-            // TODO: Improve error handling of reading into the buffer
             let _ = stream.read(&mut head).expect("failed to read from buffer");
 
             let mut f = Frame::new(head);
@@ -149,8 +142,6 @@ impl Server {
                             .expect("could not read payload from stream");
                         f.payload = Some(payload.to_owned());
 
-                        println!("masking key {0}", masking_key[0]);
-
                         match f.payload {
                             Some(mut pl) => {
                                 match f.masking_key {
@@ -167,6 +158,8 @@ impl Server {
                             None => (),
                         }
                     }
+
+                    Frame::text("Hello Mike!".to_string());
 
                     // header byte (fin + opcode)
                     // 1000 0001
