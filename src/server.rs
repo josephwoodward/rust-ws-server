@@ -83,17 +83,6 @@ impl Server {
         // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
         // From https://tools.ietf.org/html/rfc6455#section-4.2.2
 
-        // let mut head = [0u8];
-        // let s = BufReader::new(&mut stream);
-        // s.read(&head);
-
-        // let mut head = [0u8; 2];
-
-        // let mut s = BufReader::new(&mut stream);
-        // let _ = s.read(&mut head).expect("failed to read from buffer");
-        // println!("first byte {0}", head[0]);
-        // _ = s.read_exact(&head);
-
         let initial_handshake: Vec<String> = BufReader::new(&mut stream)
             .lines()
             .map(|result| result.unwrap())
@@ -116,7 +105,6 @@ impl Server {
 
         loop {
             let mut head = [0u8; 2];
-
             let _ = stream.read(&mut head).expect("failed to read from buffer");
 
             let mut f = Frame::new(head);
@@ -159,23 +147,31 @@ impl Server {
                         }
                     }
 
-                    Frame::text("Hello Mike!".to_string());
+                    let response = Frame::text("Hello Mike!".to_string());
 
                     // header byte (fin + opcode)
                     // 1000 0001
-                    let b0: u8 = 129;
-                    let msg = "Hello Mike!";
+                    let mut head: u8 = response.op_code as u8;
+                    if response.is_final {
+                        head |= 1 << 7;
+                    }
 
-                    let mut result = vec![0u8; 2 + msg.len()];
-                    let b1: u8 = 0;
-                    result[0] = b0;
+                    match response.payload {
+                        Some(pl) => {
+                            let b1: u8 = 0;
+                            let sz: usize = response.payload_length.into();
+                            let mut result = vec![0u8; 2 + sz];
+                            result[0] = head;
 
-                    result[1] = b1 | usize::to_ne_bytes(msg.len())[0];
-                    result[2..].copy_from_slice(msg.as_bytes());
+                            result[1] = b1 | usize::to_ne_bytes(response.payload_length.into())[0];
+                            result[2..].copy_from_slice(pl.as_slice());
 
-                    let mut w = BufWriter::new(&mut stream);
-                    w.write(&result).unwrap();
-                    w.flush().unwrap();
+                            let mut w = BufWriter::new(&mut stream);
+                            w.write(&result).unwrap();
+                            w.flush().unwrap();
+                        }
+                        None => {}
+                    }
                 }
                 OpCode::Close => {}
                 OpCode::Ping => {}
@@ -189,27 +185,6 @@ fn unmask_easy(payload: &mut [u8], mask: [u8; 4]) {
     for i in 0..payload.len() {
         payload[i] ^= mask[i & 3];
     }
-}
-
-fn unmask_fallback(buf: &mut [u8], mask: [u8; 4]) {
-    let mask_u32 = u32::from_ne_bytes(mask);
-
-    let (prefix, words, suffix) = unsafe { buf.align_to_mut::<u32>() };
-    unmask_easy(prefix, mask);
-    let head = prefix.len() & 3;
-    let mask_u32 = if head > 0 {
-        if cfg!(target_endian = "big") {
-            mask_u32.rotate_left(8 * head as u32)
-        } else {
-            mask_u32.rotate_right(8 * head as u32)
-        }
-    } else {
-        mask_u32
-    };
-    for word in words.iter_mut() {
-        *word ^= mask_u32;
-    }
-    unmask_easy(suffix, mask_u32.to_ne_bytes());
 }
 
 fn generate_hash(key: String) -> String {

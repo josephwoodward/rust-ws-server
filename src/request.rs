@@ -29,9 +29,6 @@ impl OpCode {
             _ => panic!("Unknown op code: {}", v),
         }
     }
-    pub fn to_u8(oc: &OpCode) -> u8 {
-        return *oc as u8;
-    }
 }
 
 impl fmt::Display for OpCode {
