@@ -18,13 +18,14 @@ pub struct Frame {
 
 impl Frame {
     pub fn new(head: [u8; 2]) -> Self {
+        let sz = head[1] & 0x7F;
         Self {
             op_code: OpCode::from_u8(head[0]),
             is_final: (head[0] & 0x80) == 0x00,
             is_masked: (head[1] & 0x80) == 0x80,
-            payload_length: head[1] & 0x7F,
+            payload_length: sz,
             masking_key: None,
-            payload: None,
+            payload: Some(vec![0; sz.into()]),
         }
     }
 
@@ -111,9 +112,9 @@ impl Server {
 
             match f.op_code {
                 OpCode::Text => {
-                    if f.payload_length > 0 {
-                        f.payload = Some(vec![0; f.payload_length.into()]);
-                    }
+                    // if f.payload_length > 0 {
+                    //     f.payload = Some(vec![0; f.payload_length.into()]);
+                    // }
 
                     if f.is_masked {
                         let mut masking_key = [0u8; 4];
