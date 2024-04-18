@@ -17,18 +17,25 @@ pub struct Frame {
 }
 
 impl Frame {
+    /// Creates a new websocket frame
     pub fn new(head: [u8; 2]) -> Self {
-        let sz = head[1] & 0x7F;
-        Self {
+        let mut f = Self {
             op_code: OpCode::from_u8(head[0]),
             is_final: (head[0] & 0x80) == 0x00,
             is_masked: (head[1] & 0x80) == 0x80,
-            payload_length: sz,
+            payload_length: head[1] & 0x7F,
             masking_key: None,
-            payload: Some(vec![0; sz.into()]),
+            payload: None,
+        };
+
+        if f.payload_length > 0 {
+            f.payload = Some(vec![0; f.payload_length.into()]);
         }
+
+        return f;
     }
 
+    /// Creates a new websocket text based frame
     pub fn text(msg: String) -> Self {
         Self {
             op_code: OpCode::Text,
@@ -105,6 +112,7 @@ impl Server {
         }
 
         loop {
+            // Receive
             let mut head = [0u8; 2];
             let _ = stream.read(&mut head).expect("failed to read from buffer");
 
@@ -112,10 +120,6 @@ impl Server {
 
             match f.op_code {
                 OpCode::Text => {
-                    // if f.payload_length > 0 {
-                    //     f.payload = Some(vec![0; f.payload_length.into()]);
-                    // }
-
                     if f.is_masked {
                         let mut masking_key = [0u8; 4];
                         let _ = stream
@@ -148,6 +152,7 @@ impl Server {
                         }
                     }
 
+                    // Send
                     let response = Frame::text("Hello Mike!".to_string());
 
                     // header byte (fin + opcode)
