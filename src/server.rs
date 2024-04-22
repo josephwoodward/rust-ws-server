@@ -79,13 +79,16 @@ impl Server {
 
         for stream in listener.incoming() {
             let s = stream.expect("failed to read from TCP stream");
-            self.upgrade_connection(s);
+            match self.upgrade_connection(&s) {
+                Ok(_) => _ = s.shutdown(std::net::Shutdown::Both),
+                Err(_) => todo!(),
+            }
         }
 
         return Ok(());
     }
 
-    fn upgrade_connection(&self, mut stream: TcpStream) -> ! {
+    fn upgrade_connection(&self, mut stream: &TcpStream) -> Result<(), String> {
         // initial HTTP websocket haneshake
         // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
         // GET /chat HTTP/1.1
@@ -103,19 +106,19 @@ impl Server {
         // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
         // From https://tools.ietf.org/html/rfc6455#section-4.2.2
 
-        let initial_handshake: Vec<String> = BufReader::new(&mut stream)
+        let initial_handshake: Vec<String> = BufReader::new(stream)
             .lines()
             .map(|result| result.unwrap())
             .take_while(|line| !line.is_empty())
             .collect();
 
         if initial_handshake[0] != "GET /ws HTTP/1.1" {
-            let mut w = BufWriter::new(&mut stream);
+            let mut w = BufWriter::new(stream);
             w.write("HTTP/1.1 404 Not Found".as_bytes()).unwrap();
             w.flush().unwrap();
         } else if let Some(key) = find_websocket_key(initial_handshake) {
             let hash = generate_hash(key);
-            let mut w = BufWriter::new(&mut stream);
+            let mut w = BufWriter::new(stream);
             w.write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
                 .unwrap();
             w.flush().unwrap();
@@ -215,6 +218,9 @@ impl Server {
                     let mut w = BufWriter::new(&mut stream);
                     w.write(&result).unwrap();
                     w.flush().unwrap();
+
+                    // Return to close connection
+                    return Ok(());
                 }
                 OpCode::Ping => {}
                 OpCode::Pong => {}
