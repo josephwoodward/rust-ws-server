@@ -69,7 +69,7 @@ impl Server {
         Self { addr }
     }
 
-    pub fn run(&mut self) -> Result<(), String> {
+    pub fn run(&self) -> Result<(), String> {
         let listener = match TcpListener::bind(&self.addr) {
             Ok(l) => l,
             Err(e) => return Err(e.to_string()),
@@ -85,7 +85,7 @@ impl Server {
         return Ok(());
     }
 
-    fn upgrade_connection(&mut self, mut stream: TcpStream) -> ! {
+    fn upgrade_connection(&self, mut stream: TcpStream) -> ! {
         // initial HTTP websocket haneshake
         // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
         // GET /chat HTTP/1.1
