@@ -14,7 +14,7 @@ impl TryFrom<&[u8]> for Request {
 
 pub enum OpCode {
     Text = 1,
-    Close = 8,
+    Close = 0x8,
     Ping = 9,
     Pong = 10,
 }

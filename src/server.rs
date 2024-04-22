@@ -46,6 +46,18 @@ impl Frame {
             payload: Some(msg.as_bytes().to_vec()),
         }
     }
+
+    /// Creates a new websocket close based frame
+    pub fn close() -> Self {
+        Self {
+            op_code: OpCode::Close,
+            is_final: true,
+            is_masked: false,
+            payload_length: 0,
+            masking_key: None,
+            payload: None,
+        }
+    }
 }
 
 pub struct Server {
@@ -179,7 +191,31 @@ impl Server {
                         None => {}
                     }
                 }
-                OpCode::Close => {}
+                OpCode::Close => {
+                    println!("received message: {0}", "Close");
+                    let response = Frame::close();
+
+                    let mut head: u8 = response.op_code as u8;
+                    if response.is_final {
+                        head |= 1 << 7;
+                    }
+
+                    let mut result: [u8; 2] = [0; 2];
+                    result[0] = head;
+
+                    if f.is_masked {
+                        let mut masking_key = [0u8; 4];
+                        let _ = stream
+                            .read(&mut masking_key)
+                            .expect("could not read masking key from stream");
+
+                        f.masking_key = Some(masking_key);
+                    }
+
+                    let mut w = BufWriter::new(&mut stream);
+                    w.write(&result).unwrap();
+                    w.flush().unwrap();
+                }
                 OpCode::Ping => {}
                 OpCode::Pong => {}
             }
