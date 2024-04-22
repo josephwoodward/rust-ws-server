@@ -1,7 +1,7 @@
 use sha1::{Digest, Sha1};
 use std::{
-    io::{BufRead, BufReader, BufWriter, Read, Write},
-    net::{TcpListener, TcpStream},
+    io::{BufRead, BufReader, BufWriter, Error, Read, Write},
+    net::{Shutdown, TcpListener, TcpStream},
     usize,
 };
 
@@ -80,7 +80,7 @@ impl Server {
         for stream in listener.incoming() {
             let s = stream.expect("failed to read from TCP stream");
             match self.upgrade_connection(&s) {
-                Ok(_) => _ = s.shutdown(std::net::Shutdown::Both),
+                Ok(_) => _ = s.shutdown(Shutdown::Both),
                 Err(_) => todo!(),
             }
         }
@@ -88,7 +88,7 @@ impl Server {
         return Ok(());
     }
 
-    fn upgrade_connection(&self, mut stream: &TcpStream) -> Result<(), String> {
+    fn upgrade_connection(&self, mut stream: &TcpStream) -> Result<(), Error> {
         // initial HTTP websocket haneshake
         // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
         // GET /chat HTTP/1.1
@@ -137,18 +137,25 @@ impl Server {
                 OpCode::Text => {
                     if f.is_masked {
                         let mut masking_key = [0u8; 4];
-                        let _ = stream
-                            .read(&mut masking_key)
-                            .expect("could not read masking key from stream");
+                        let size = match stream.read(&mut masking_key) {
+                            Ok(s) => s,
+                            Err(e) => return Err(e), // failed to read masking key from stream
+                        };
 
-                        f.masking_key = Some(masking_key);
+                        if size > 0 {
+                            f.masking_key = Some(masking_key);
+                        }
 
                         // read payload now we have length
                         let mut payload = vec![0u8; f.payload_length.into()];
-                        let _ = stream
-                            .read(&mut payload)
-                            .expect("could not read payload from stream");
-                        f.payload = Some(payload.to_owned());
+                        let size = match stream.read(&mut payload) {
+                            Ok(s) => s,
+                            Err(e) => return Err(e),
+                        };
+
+                        if size == usize::try_from(f.payload_length).unwrap() {
+                            f.payload = Some(payload.to_owned());
+                        }
 
                         match f.payload {
                             Some(mut pl) => {
