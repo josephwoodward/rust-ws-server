@@ -154,7 +154,7 @@ impl Server {
                                     None => println!("no masking key"),
                                 }
                                 let msg = match String::from_utf8(pl) {
-                                    Ok(m) => m,
+                                    Ok(msg) => msg,
                                     Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
                                 };
 
@@ -176,11 +176,11 @@ impl Server {
 
                     match response.payload {
                         Some(pl) => {
-                            let b1: u8 = 0;
                             let sz: usize = response.payload_length.into();
                             let mut result = vec![0u8; 2 + sz];
                             result[0] = head;
 
+                            let b1: u8 = 0;
                             result[1] = b1 | usize::to_ne_bytes(response.payload_length.into())[0];
                             result[2..].copy_from_slice(pl.as_slice());
 
