@@ -112,19 +112,18 @@ impl Server {
             .take_while(|line| !line.is_empty())
             .collect();
 
+        let mut w = BufWriter::new(stream);
         if initial_handshake[0] != "GET /ws HTTP/1.1" {
-            let mut w = BufWriter::new(stream);
             w.write("HTTP/1.1 404 Not Found".as_bytes()).unwrap();
-            w.flush().unwrap();
         } else if let Some(key) = find_websocket_key(initial_handshake) {
             let hash = generate_hash(key);
-            let mut w = BufWriter::new(stream);
             w.write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
                 .unwrap();
-            w.flush().unwrap();
 
             println!("switching protocols");
         }
+
+        w.flush().unwrap();
 
         loop {
             // Receive
