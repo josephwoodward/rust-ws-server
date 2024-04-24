@@ -156,20 +156,17 @@ impl Server {
                             f.payload = Some(payload.to_owned());
                         }
 
-                        match f.payload {
-                            Some(mut pl) => {
-                                match f.masking_key {
-                                    Some(mk) => unmask_easy(&mut pl, mk),
-                                    None => println!("no masking key"),
-                                }
-                                let msg = match String::from_utf8(pl) {
-                                    Ok(msg) => msg,
-                                    Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-                                };
-
-                                println!("received message: {0}", msg)
+                        if let Some(mut payload) = f.payload {
+                            match f.masking_key {
+                                Some(mk) => unmask_easy(&mut payload, mk),
+                                None => println!("no masking key"),
                             }
-                            None => (),
+                            let msg = match String::from_utf8(payload) {
+                                Ok(msg) => msg,
+                                Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+                            };
+
+                            println!("received message: {0}", msg)
                         }
                     }
 
@@ -183,21 +180,18 @@ impl Server {
                         head |= 1 << 7;
                     }
 
-                    match response.payload {
-                        Some(pl) => {
-                            let sz: usize = response.payload_length.into();
-                            let mut result = vec![0u8; 2 + sz];
-                            result[0] = head;
+                    if let Some(payload) = response.payload {
+                        let sz: usize = response.payload_length.into();
+                        let mut result = vec![0u8; 2 + sz];
+                        result[0] = head;
 
-                            let b1: u8 = 0;
-                            result[1] = b1 | usize::to_ne_bytes(response.payload_length.into())[0];
-                            result[2..].copy_from_slice(pl.as_slice());
+                        let b1: u8 = 0;
+                        result[1] = b1 | usize::to_ne_bytes(response.payload_length.into())[0];
+                        result[2..].copy_from_slice(payload.as_slice());
 
-                            let mut w = BufWriter::new(&mut stream);
-                            w.write(&result).unwrap();
-                            w.flush().unwrap();
-                        }
-                        None => {}
+                        let mut w = BufWriter::new(&mut stream);
+                        w.write(&result).unwrap();
+                        w.flush().unwrap();
                     }
                 }
                 OpCode::Close => {
