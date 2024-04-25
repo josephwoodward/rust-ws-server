@@ -27,32 +27,18 @@ impl Server {
         for stream in listener.incoming() {
             let s = stream.expect("failed to read from TCP stream");
             match self.upgrade_connection(&s) {
+                Ok(_) => {}
+                Err(_) => _ = s.shutdown(Shutdown::Both),
+            }
+            match self.websocket(&s) {
                 Ok(_) => _ = s.shutdown(Shutdown::Both),
-                Err(_) => todo!(),
+                Err(_) => _ = s.shutdown(Shutdown::Both),
             }
         }
 
         return Ok(());
     }
-
-    fn upgrade_connection(&self, mut stream: &TcpStream) -> Result<(), Error> {
-        // initial HTTP websocket haneshake
-        // Opening handshake: https://datatracker.ietf.org/doc/html/rfc6455#section-1.3
-        // GET /chat HTTP/1.1
-        // Host: server.example.com
-        // Upgrade: websocket
-        // Connection: Upgrade
-        // Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
-        // Origin: http://example.com
-        // Sec-WebSocket-Protocol: chat, superchat
-        // Sec-WebSocket-Version: 13
-
-        // HTTP/1.1 101 Switching Protocols
-        // Upgrade: websocket
-        // Connection: Upgrade
-        // Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
-        // From https://tools.ietf.org/html/rfc6455#section-4.2.2
-
+    fn upgrade_connection(&self, stream: &TcpStream) -> Result<(), Error> {
         let initial_handshake: Vec<String> = BufReader::new(stream)
             .lines()
             .map(|result| result.unwrap())
@@ -72,13 +58,16 @@ impl Server {
 
         w.flush().unwrap();
 
+        Ok(())
+    }
+
+    fn websocket(&self, mut stream: &TcpStream) -> Result<(), Error> {
         loop {
             // Receive
             let mut head = [0u8; 2];
             let _ = stream.read(&mut head).expect("failed to read from buffer");
 
             let mut f = Frame::new(head);
-
             match f.op_code {
                 OpCode::Text => {
                     if f.is_masked {
