@@ -5,60 +5,7 @@ use std::{
     usize,
 };
 
-use crate::request::OpCode;
-
-pub struct Frame {
-    is_final: bool,
-    op_code: OpCode,
-    is_masked: bool,
-    masking_key: Option<[u8; 4]>,
-    payload_length: u8,
-    payload: Option<Vec<u8>>,
-}
-
-impl Frame {
-    /// Creates a new websocket frame
-    pub fn new(head: [u8; 2]) -> Self {
-        let mut f = Self {
-            op_code: OpCode::from_u8(head[0]),
-            is_final: (head[0] & 0x80) == 0x00,
-            is_masked: (head[1] & 0x80) == 0x80,
-            payload_length: head[1] & 0x7F,
-            masking_key: None,
-            payload: None,
-        };
-
-        if f.payload_length > 0 {
-            f.payload = Some(vec![0; f.payload_length.into()]);
-        }
-
-        return f;
-    }
-
-    /// Creates a new websocket text based frame
-    pub fn text(msg: String) -> Self {
-        Self {
-            op_code: OpCode::Text,
-            is_final: true,
-            is_masked: false,
-            payload_length: msg.len().to_ne_bytes()[0],
-            masking_key: None,
-            payload: Some(msg.as_bytes().to_vec()),
-        }
-    }
-
-    /// Creates a new websocket close based frame
-    pub fn close() -> Self {
-        Self {
-            op_code: OpCode::Close,
-            is_final: true,
-            is_masked: false,
-            payload_length: 0,
-            masking_key: None,
-            payload: None,
-        }
-    }
-}
+use crate::frame::{Frame, OpCode};
 
 pub struct Server {
     addr: String,
