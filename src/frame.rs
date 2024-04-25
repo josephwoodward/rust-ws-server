@@ -55,7 +55,7 @@ impl Frame {
 
 #[derive(Debug, PartialEq)]
 pub enum OpCode {
-    Text = 1,
+    Text = 0x1,
     Close = 0x8,
     Ping = 9,
     Pong = 10,
@@ -90,16 +90,19 @@ mod tests {
 
     #[test]
     fn test_op_code_parsing() {
-        assert!(matches!(OpCode::from_u8(129), OpCode::Text));
-        assert!(matches!(OpCode::from_u8(136), OpCode::Close));
+        assert!(matches!(OpCode::from_u8(0x1), OpCode::Text));
+        assert!(matches!(OpCode::from_u8(0x8), OpCode::Close));
         assert!(matches!(OpCode::from_u8(137), OpCode::Ping));
         assert!(matches!(OpCode::from_u8(138), OpCode::Pong));
     }
 
     #[test]
     fn create_text_frame() {
-        let f = Frame::text("Hello Mike!".to_string());
+        let expected = "Hello Mike!";
+        let f = Frame::text(expected.to_string());
         assert_eq!(f.is_masked, false);
+        assert_eq!(f.is_final, true);
         assert_eq!(f.op_code, OpCode::Text);
+        assert_eq!(usize::from(f.payload_length), expected.len());
     }
 }
