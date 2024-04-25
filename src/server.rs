@@ -133,7 +133,7 @@ impl Server {
                         result[0] = head;
 
                         let b1: u8 = 0;
-                        result[1] = b1 | usize::to_ne_bytes(response.payload_length.into())[0];
+                        result[1] = b1 | u8::from(response.payload_length);
                         result[2..].copy_from_slice(payload.as_slice());
 
                         let mut w = BufWriter::new(&mut stream);
