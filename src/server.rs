@@ -48,6 +48,8 @@ impl Server {
 
         return Ok(());
     }
+
+    /// upgrades short-lived http connection to a persistent websocket connection.
     fn upgrade_connection(&self, stream: &TcpStream) -> Result<(), Error> {
         let initial_handshake: Vec<String> = BufReader::new(stream)
             .lines()
@@ -69,6 +71,7 @@ impl Server {
         Ok(())
     }
 
+    /// managed state of websocket stream.
     fn websocket(&self, mut stream: &TcpStream) -> Result<(), Error> {
         loop {
             // Receive
