@@ -27,12 +27,22 @@ impl Server {
         for stream in listener.incoming() {
             let s = stream.expect("failed to read from TCP stream");
             match self.upgrade_connection(&s) {
-                Ok(_) => {}
-                Err(_) => _ = s.shutdown(Shutdown::Both),
+                Ok(_) => {
+                    println!("switching protocols");
+                }
+                Err(e) => {
+                    println!("failed to upgrade connection: {}", e);
+                    _ = s.shutdown(Shutdown::Both);
+                    continue;
+                }
             }
             match self.websocket(&s) {
                 Ok(_) => _ = s.shutdown(Shutdown::Both),
-                Err(_) => _ = s.shutdown(Shutdown::Both),
+                Err(e) => {
+                    println!("disconnected: {}", e);
+                    _ = s.shutdown(Shutdown::Both);
+                    continue;
+                }
             }
         }
 
@@ -52,8 +62,6 @@ impl Server {
             let hash = generate_hash(key);
             w.write(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {hash}\r\n\r\n").as_bytes())
                 .unwrap();
-
-            println!("switching protocols");
         }
 
         w.flush().unwrap();
