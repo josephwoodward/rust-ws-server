@@ -46,7 +46,7 @@ impl Server {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     /// upgrades short-lived http connection to a persistent websocket connection.
@@ -133,7 +133,7 @@ impl Server {
                         result[0] = head;
 
                         let b1: u8 = 0;
-                        result[1] = b1 | u8::from(response.payload_length);
+                        result[1] = b1 | response.payload_length;
                         result[2..].copy_from_slice(payload.as_slice());
 
                         let mut w = BufWriter::new(&mut stream);
@@ -142,7 +142,7 @@ impl Server {
                     }
                 }
                 OpCode::Close => {
-                    println!("received message: {0}", "Close");
+                    println!("received message: Close");
                     let response = Frame::close();
 
                     let mut head: u8 = response.op_code as u8;
@@ -185,7 +185,7 @@ fn unmask_easy(payload: &mut [u8], mask: [u8; 4]) {
 fn generate_hash(key: String) -> String {
     let mut hasher = Sha1::new();
     hasher.input(key.to_owned() + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-    return base64::encode(hasher.result());
+    base64::encode(hasher.result())
 }
 
 fn find_websocket_key(request: Vec<String>) -> Option<String> {
@@ -196,7 +196,7 @@ fn find_websocket_key(request: Vec<String>) -> Option<String> {
             return Some(val.to_string());
         }
     }
-    return None;
+    None
 }
 
 #[cfg(test)]

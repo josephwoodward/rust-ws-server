@@ -25,7 +25,7 @@ impl Frame {
             f.payload = Some(vec![0; f.payload_length.into()]);
         }
 
-        return f;
+        f
     }
 
     /// Creates a new websocket text based frame
@@ -100,8 +100,8 @@ mod tests {
     fn create_text_frame() {
         let expected = "Hello Mike!";
         let f = Frame::text(expected.to_string());
-        assert_eq!(f.is_masked, false);
-        assert_eq!(f.is_final, true);
+        assert!(!f.is_masked);
+        assert!(f.is_final);
         assert_eq!(f.op_code, OpCode::Text);
         assert_eq!(usize::from(f.payload_length), expected.len());
     }
