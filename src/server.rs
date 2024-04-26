@@ -99,7 +99,7 @@ impl Server {
                             Err(e) => return Err(e),
                         };
 
-                        if size == usize::try_from(f.payload_length).unwrap() {
+                        if size == From::from(f.payload_length) {
                             f.payload = Some(payload.to_owned());
                         }
 
