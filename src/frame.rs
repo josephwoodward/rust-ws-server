@@ -14,7 +14,7 @@ impl Frame {
     pub fn new(head: [u8; 2]) -> Self {
         let mut f = Self {
             op_code: OpCode::from_u8(head[0]),
-            is_final: (head[0] & 0x80) == 0x00,
+            is_final: (head[0] & 0x80) == 0x80,
             is_masked: (head[1] & 0x80) == 0x80,
             payload_length: head[1] & 0x7F,
             masking_key: None,
@@ -94,6 +94,21 @@ mod tests {
         assert!(matches!(OpCode::from_u8(0x8), OpCode::Close));
         assert!(matches!(OpCode::from_u8(137), OpCode::Ping));
         assert!(matches!(OpCode::from_u8(138), OpCode::Pong));
+    }
+
+    #[test]
+    fn parse_head() {
+        let mut h1 = OpCode::Text as u8;
+        h1 |= 1 << 7;
+        let head: [u8; 2] = [h1, 0x80];
+
+        let f = Frame::new(head);
+        assert!(f.is_final);
+        assert_eq!(f.op_code, OpCode::Text);
+        assert!(f.is_masked);
+        assert_eq!(f.masking_key, None);
+        assert_eq!(f.payload, None);
+        assert_eq!(usize::from(f.payload_length), 0);
     }
 
     #[test]
